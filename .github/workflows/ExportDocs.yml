@@ -1,0 +1,53 @@
+name: Export Docs Bundle
+on:
+  workflow_dispatch:
+    inputs:
+      files:
+        description: "Space-separated list of files to export"
+        required: true
+        default: >
+          docs/index.html
+          docs/src/Main.js
+          docs/src/common/InitMap.js
+          docs/src/common/Geocode.js
+          docs/src/features/route/BuildRoute.js
+          docs/src/features/route/MakeBuffer.js
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build export bundle
+        id: bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILES="${{ github.event.inputs.files }}"
+          echo "FILES: $FILES"
+          # Build a single bundle with clear file markers
+          : > export_bundle.txt
+          for f in $FILES; do
+            if [[ -f "$f" ]]; then
+              echo "===== START $f =====" >> export_bundle.txt
+              cat "$f" >> export_bundle.txt
+              echo -e "\n===== END $f =====\n" >> export_bundle.txt
+            else
+              echo "===== START $f (NOT FOUND) =====" >> export_bundle.txt
+              echo "(Missing file: $f)" >> export_bundle.txt
+              echo -e "===== END $f =====\n" >> export_bundle.txt
+            fi
+          done
+          # Put the bundle into the job summary for easy copy/paste
+          {
+            echo "### Export Bundle"
+            echo
+            echo '```text'
+            cat export_bundle.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload artifact (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: export_bundle
+          path: export_bundle.txt
