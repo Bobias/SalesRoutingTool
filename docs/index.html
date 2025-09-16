@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sales Routing Tool</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root { --pad: 10px; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, Segoe UI, Roboto, Arial; }
+    .wrap { display: grid; grid-template-columns: 360px 1fr; gap: 10px; height: 100vh; }
+    .panel { padding: var(--pad); border-right: 1px solid #ddd; overflow: auto; }
+    .panel h3 { margin: 8px 0; }
+    label { display: block; margin-top: 8px; font-size: 13px; }
+    input, textarea, button { font-size: 14px; }
+    input, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
+    button { margin-top: 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid #999; background: #f6f6f6; cursor: pointer; }
+    button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    button.danger { background: #b00020; color: #fff; border-color: #b00020; }
+    #map { width: 100%; height: 100%; }
+    .small { font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h3>Build Sales Route</h3>
+      <label>Origin</label>
+      <input id="origin" placeholder="Denver, CO or 39.7392,-104.9903" />
+
+      <label>Destination</label>
+      <input id="destination" placeholder="Pueblo, CO or 38.2544,-104.6091" />
+
+      <label>Stops (optional, one per line)</label>
+      <textarea id="stops" rows="3" placeholder="Castle Rock, CO
+Colorado Springs, CO"></textarea>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <button id="buildRoute" class="primary">Build Route</button>
+        <button id="clearMap" class="danger">Clear</button>
+      </div>
+
+      <h3 style="margin-top:14px">Buffer</h3>
+      <label>Buffer Miles</label>
+      <input id="bufferMiles" type="number" value="5" step="0.1" />
+      <button id="makeBuffer">Make Buffer</button>
+
+      <p class="small" style="margin-top:10px">
+        Minimal features: map, route, buffer.
+      </p>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <!-- Important: path is relative to docs/ root -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
