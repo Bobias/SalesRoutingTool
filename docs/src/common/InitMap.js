@@ -1,4 +1,4 @@
-import L from 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.esm.js';
+import * as L from 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.esm.js';
 
 export function InitMap() {
   const Map = L.map('map').setView([39.5, -105.5], 7);
