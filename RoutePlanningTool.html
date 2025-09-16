@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sales Route Tool — Minimal</title>
+    <!-- Leaflet + Turf from reliable CDNs -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+    <style>
+        :root {
+            --pad: 10px;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: system-ui, Segoe UI, Roboto, Arial;
+        }
+
+        .wrap {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 10px;
+            height: 100vh;
+        }
+
+        .panel {
+            padding: var(--pad);
+            border-right: 1px solid #ddd;
+            overflow: auto;
+        }
+
+            .panel h3 {
+                margin: 8px 0;
+            }
+
+        label {
+            display: block;
+            margin-top: 8px;
+            font-size: 13px;
+        }
+
+        input, textarea, button {
+            font-size: 14px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        button {
+            margin-top: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #999;
+            background: #f6f6f6;
+            cursor: pointer;
+        }
+
+            button.primary {
+                background: #1a73e8;
+                color: #fff;
+                border-color: #1a73e8;
+            }
+
+            button.danger {
+                background: #b00020;
+                color: #fff;
+                border-color: #b00020;
+            }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .small {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="panel">
+            <h3>Build Sales Route</h3>
+            <label>Origin</label>
+            <input id="origin" placeholder="Denver, CO or 39.7392,-104.9903" />
+
+            <label>Destination</label>
+            <input id="destination" placeholder="Pueblo, CO or 38.2544,-104.6091" />
+
+            <label>Stops (optional, one per line)</label>
+            <textarea id="stops" rows="3" placeholder="Castle Rock, CO
+Colorado Springs, CO"></textarea>
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap">
+                <button id="buildRoute" class="primary">Build Route</button>
+                <button id="clearMap" class="danger">Clear</button>
+            </div>
+
+            <h3 style="margin-top:14px">Buffer</h3>
+            <label>Buffer Miles</label>
+            <input id="bufferMiles" type="number" value="5" step="0.1" />
+            <button id="makeBuffer">Make Buffer</button>
+
+            <p class="small" style="margin-top:10px">
+                This minimal tool keeps only three capabilities: map, route building, and a buffer around the route.
+                Enter plain text places or "lat,lng" pairs. Waypoints are optional.
+            </p>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <script>
+        // Map Setup
+        const map = L.map('map').setView([39.5, -105.5], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+
+        // State
+        let routeLayer = null;
+        let bufferLayer = null;
+        let routeGeo = null; // GeoJSON FeatureCollection for the built route
+
+        // Helpers
+        function parseLatLng(input) {
+            const parts = String(input || '').split(',').map(s => s.trim());
+            if (parts.length === 2 && !isNaN(+parts[0]) && !isNaN(+parts[1])) {
+                const lat = +parts[0];
+                const lng = +parts[1];
+                if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng };
+            }
+            return null;
+        }
+
+        async function geocode(query) {
+            const direct = parseLatLng(query);
+            if (direct) return direct;
+            const resp = await fetch('https://photon.komoot.io/api/?limit=1&q=' + encodeURIComponent(query));
+            if (!resp.ok) throw new Error('Geocode network error');
+            const data = await resp.json();
+            if (!data.features || !data.features.length) throw new Error('No geocode result for "' + query + '"');
+            const [lng, lat] = data.features[0].geometry.coordinates;
+            return { lat, lng };
+        }
+
+        function drawRoute(geometry) {
+            if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+            routeGeo = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry }] };
+            routeLayer = L.geoJSON(routeGeo, { style: { color: '#d33', weight: 4 } }).addTo(map);
+            map.fitBounds(routeLayer.getBounds(), { padding: [20, 20] });
+        }
+
+        async function buildRoute() {
+            const origin = document.getElementById('origin').value.trim();
+            const destination = document.getElementById('destination').value.trim();
+            const stops = document.getElementById('stops').value.split(/\n+/).map(s => s.trim()).filter(Boolean);
+            if (!origin || !destination) { alert('Enter origin and destination'); return; }
+            try {
+                const O = await geocode(origin);
+                const D = await geocode(destination);
+                const W = [];
+                for (const s of stops) { W.push(await geocode(s)); }
+                const coords = [O, ...W, D].map(p => p.lng + ',' + p.lat).join(';');
+                const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+                const r = await fetch(url);
+                if (!r.ok) throw new Error('Routing network error');
+                const j = await r.json();
+                if (!j.routes || !j.routes.length) throw new Error('No route returned');
+                drawRoute(j.routes[0].geometry);
+            } catch (err) {
+                alert('Build failed: ' + err.message);
+            }
+        }
+
+        function makeBuffer() {
+            if (!routeGeo) { alert('Build a route first'); return; }
+            const miles = parseFloat(document.getElementById('bufferMiles').value || '5');
+            const meters = miles * 1609.344;
+            const line = routeGeo.features[0];
+            const buffered = turf.buffer(line, meters, { units: 'meters' });
+            if (bufferLayer) { map.removeLayer(bufferLayer); bufferLayer = null; }
+            bufferLayer = L.geoJSON(buffered, { style: { color: '#228B22', weight: 2, fillOpacity: 0.15 } }).addTo(map);
+            // Keep view reasonable
+            try { map.fitBounds(bufferLayer.getBounds(), { padding: [20, 20] }); } catch { }
+        }
+
+        function clearMap() {
+            if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+            if (bufferLayer) { map.removeLayer(bufferLayer); bufferLayer = null; }
+            routeGeo = null;
+        }
+
+        // Events
+        document.getElementById('buildRoute').addEventListener('click', buildRoute);
+        document.getElementById('makeBuffer').addEventListener('click', makeBuffer);
+        document.getElementById('clearMap').addEventListener('click', clearMap);
+    </script>
+</body>
+</html>
