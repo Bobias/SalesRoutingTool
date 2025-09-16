@@ -1,57 +1,58 @@
-import { initMap } from './common/initMap.js';
-import { geocode } from './common/geocode.js';
-import { buildRoute } from './features/route/buildRoute.js';
-import { makeBufferFromFeature } from './features/route/makeBuffer.js';
+import { InitMap } from './common/InitMap.js';
+import { Geocode } from './common/Geocode.js';
+import { BuildRoute } from './features/route/BuildRoute.js';
+import { MakeBuffer } from './features/route/MakeBuffer.js';
 
-const { map, L } = initMap();
+const { Map, L } = InitMap();
 
-let routeLayer = null;
-let bufferLayer = null;
-let routeFeature = null;
+let RouteLayer = null;
+let BufferLayer = null;
+let RouteFeature = null;
 
-function drawGeoJson(fc, style) {
-  const layer = L.geoJSON(fc, { style });
-  layer.addTo(map);
-  return layer;
+function DrawGeoJson(FeatureCollection, Style) {
+  const Layer = L.geoJSON(FeatureCollection, { style: Style });
+  Layer.addTo(Map);
+  return Layer;
 }
 
-function clearMap() {
-  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
-  if (bufferLayer) { map.removeLayer(bufferLayer); bufferLayer = null; }
-  routeFeature = null;
+function ClearMap() {
+  if (RouteLayer) { Map.removeLayer(RouteLayer); RouteLayer = null; }
+  if (BufferLayer) { Map.removeLayer(BufferLayer); BufferLayer = null; }
+  RouteFeature = null;
 }
 
 document.getElementById('buildRoute').addEventListener('click', async () => {
-  const origin = document.getElementById('origin').value.trim();
-  const destination = document.getElementById('destination').value.trim();
-  const stops = document.getElementById('stops').value.split(/\n+/).map(s => s.trim()).filter(Boolean);
+  const Origin = document.getElementById('origin').value.trim();
+  const Destination = document.getElementById('destination').value.trim();
+  const Stops = document.getElementById('stops').value
+    .split(/\n+/).map(s => s.trim()).filter(Boolean);
 
-  if (!origin || !destination) { alert('Enter origin and destination'); return; }
+  if (!Origin || !Destination) { alert('Enter origin and destination'); return; }
 
   try {
-    const O = await geocode(origin);
-    const D = await geocode(destination);
+    const O = await Geocode(Origin);
+    const D = await Geocode(Destination);
     const W = [];
-    for (const s of stops) W.push(await geocode(s));
+    for (const S of Stops) W.push(await Geocode(S));
 
-    const line = await buildRoute([O, ...W, D]);
-    routeFeature = { type: 'Feature', properties: {}, geometry: line };
+    const Line = await BuildRoute([O, ...W, D]);
+    RouteFeature = { type: 'Feature', properties: {}, geometry: Line };
 
-    if (routeLayer) map.removeLayer(routeLayer);
-    routeLayer = drawGeoJson({ type: 'FeatureCollection', features: [routeFeature] }, { color: '#d33', weight: 4 });
-    map.fitBounds(routeLayer.getBounds(), { padding: [20, 20] });
-  } catch (err) {
-    alert('Build failed: ' + (err && err.message ? err.message : err));
+    if (RouteLayer) Map.removeLayer(RouteLayer);
+    RouteLayer = DrawGeoJson({ type: 'FeatureCollection', features: [RouteFeature] }, { color: '#d33', weight: 4 });
+    Map.fitBounds(RouteLayer.getBounds(), { padding: [20, 20] });
+  } catch (Err) {
+    alert('Build failed: ' + (Err?.message || Err));
   }
 });
 
 document.getElementById('makeBuffer').addEventListener('click', async () => {
-  if (!routeFeature) { alert('Build a route first'); return; }
-  const miles = parseFloat(document.getElementById('bufferMiles').value || '5');
-  const buffered = await makeBufferFromFeature(routeFeature, miles);
-  if (bufferLayer) map.removeLayer(bufferLayer);
-  bufferLayer = drawGeoJson(buffered, { color: '#228B22', weight: 2, fillOpacity: 0.15 });
-  try { map.fitBounds(bufferLayer.getBounds(), { padding: [20, 20] }); } catch {}
+  if (!RouteFeature) { alert('Build a route first'); return; }
+  const Miles = parseFloat(document.getElementById('bufferMiles').value || '5');
+  const Buffered = await MakeBuffer(RouteFeature, Miles);
+  if (BufferLayer) Map.removeLayer(BufferLayer);
+  BufferLayer = DrawGeoJson(Buffered, { color: '#228B22', weight: 2, fillOpacity: 0.15 });
+  try { Map.fitBounds(BufferLayer.getBounds(), { padding: [20, 20] }); } catch {}
 });
 
-document.getElementById('clearMap').addEventListener('click', clearMap);
+document.getElementById('clearMap').addEventListener('click', ClearMap);
