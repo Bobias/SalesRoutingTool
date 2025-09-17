@@ -51,6 +51,17 @@ Colorado Springs, CO"></textarea>
     </div>
     <div id="map"></div>
   </div>
+  
+<h3>Clients</h3>
+<label>Upload Client CSV</label>
+<input id="ClientCsv" type="file" accept=".csv" />
+<button id="LoadClients">Load Clients</button>
+
+<h4>Clients In Buffer</h4>
+<div id="ClientResults"></div>
+
+<!-- Include PapaParse -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <!-- Important: path is relative to docs/ root -->
   <script type="module" src="./src/Main.js"></script>
