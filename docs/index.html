@@ -21,6 +21,9 @@
     .small { font-size: 12px; color: #666; }
     .wrap { grid-auto-rows: 1fr; /* ensures new rows (if any) fill evenly */ }
     #map { min-height: 0; }      /* prevents grid overflow from squashing map */
+    /* Prevent visible seams between Leaflet tiles */
+    .leaflet-tile { image-rendering: auto; }     /* avoid pixelated/stretch artifacts */
+    #map { background: #f8f8f8; min-height: 0; } /* neutral bg + fix grid overflow */
   </style>
 </head>
 <body>
