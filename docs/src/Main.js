@@ -24,17 +24,6 @@ function ClearMap() {
   RouteFeature = null;
 }
 
-async function LoadClientsFromCsv(file) {
-  return new Promise((resolve, reject) => {
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: results => resolve(results.data),
-      error: err => reject(err)
-    });
-  });
-}
-
 document.getElementById('BuildRoute').addEventListener('click', async () => {
   const Origin = document.getElementById('origin').value.trim();
   const Destination = document.getElementById('destination').value.trim();
@@ -88,31 +77,14 @@ document.getElementById('makeBuffer').addEventListener('click', async () => {
 
 document.getElementById('ClearMap').addEventListener('click', ClearMap);
 
+import { LoadClients } from './common/CsvLoader.js';
+
 document.getElementById('LoadClients').addEventListener('click', async () => {
   const fileInput = document.getElementById('ClientCsv');
   if (!fileInput.files.length) { alert('Please select a CSV file first'); return; }
 
   try {
-    const rows = await LoadClientsFromCsv(fileInput.files[0]);
-    Clients = rows.map(row => ({
-      org: row['Organization Name'] || '',
-      address: `${row['Address'] || ''}, ${row['City'] || ''}, ${row['State'] || ''} ${row['Zip Code'] || ''}`,
-      raw: row,
-      lat: null,
-      lng: null
-    }));
-
-    // Geocode addresses sequentially (can be improved with batching later)
-    for (const client of Clients) {
-      try {
-        const loc = await Geocode(client.address);
-        client.lat = loc.lat;
-        client.lng = loc.lng;
-      } catch (e) {
-        console.warn('Geocode failed for', client.address);
-      }
-    }
-
+    Clients = await LoadClients(fileInput.files[0]);
     alert(`Loaded ${Clients.length} clients`);
   } catch (err) {
     alert('Error loading CSV: ' + err.message);
