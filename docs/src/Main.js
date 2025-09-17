@@ -21,7 +21,7 @@ function ClearMap() {
   RouteFeature = null;
 }
 
-document.getElementById('buildRoute').addEventListener('click', async () => {
+document.getElementById('BuildRoute').addEventListener('click', async () => {
   const Origin = document.getElementById('origin').value.trim();
   const Destination = document.getElementById('destination').value.trim();
   const Stops = document.getElementById('stops').value
@@ -48,11 +48,11 @@ document.getElementById('buildRoute').addEventListener('click', async () => {
 
 document.getElementById('makeBuffer').addEventListener('click', async () => {
   if (!RouteFeature) { alert('Build a route first'); return; }
-  const Miles = parseFloat(document.getElementById('bufferMiles').value || '5');
+  const Miles = parseFloat(document.getElementById('BufferMiles').value || '5');
   const Buffered = await MakeBuffer(RouteFeature, Miles);
   if (BufferLayer) Map.removeLayer(BufferLayer);
   BufferLayer = DrawGeoJson(Buffered, { color: '#228B22', weight: 2, fillOpacity: 0.15 });
   try { Map.fitBounds(BufferLayer.getBounds(), { padding: [20, 20] }); } catch {}
 });
 
-document.getElementById('clearMap').addEventListener('click', ClearMap);
+document.getElementById('ClearMap').addEventListener('click', ClearMap);
