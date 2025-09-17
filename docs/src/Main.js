@@ -8,6 +8,9 @@ const { Map, L } = InitMap();
 let RouteLayer = null;
 let BufferLayer = null;
 let RouteFeature = null;
+let Clients = [];
+let ClientMarkers = [];
+
 
 function DrawGeoJson(FeatureCollection, Style) {
   const Layer = L.geoJSON(FeatureCollection, { style: Style });
@@ -19,6 +22,17 @@ function ClearMap() {
   if (RouteLayer) { Map.removeLayer(RouteLayer); RouteLayer = null; }
   if (BufferLayer) { Map.removeLayer(BufferLayer); BufferLayer = null; }
   RouteFeature = null;
+}
+
+async function LoadClientsFromCsv(file) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: results => resolve(results.data),
+      error: err => reject(err)
+    });
+  });
 }
 
 document.getElementById('BuildRoute').addEventListener('click', async () => {
@@ -53,6 +67,55 @@ document.getElementById('makeBuffer').addEventListener('click', async () => {
   if (BufferLayer) Map.removeLayer(BufferLayer);
   BufferLayer = DrawGeoJson(Buffered, { color: '#228B22', weight: 2, fillOpacity: 0.15 });
   try { Map.fitBounds(BufferLayer.getBounds(), { padding: [20, 20] }); } catch {}
+  
+  // Clear old markers
+  ClientMarkers.forEach(m => Map.removeLayer(m));
+  ClientMarkers = [];
+  
+  // Filter clients inside buffer
+  const matches = Clients.filter(c => c.lat && c.lng && turf.booleanPointInPolygon([c.lng, c.lat], Buffered));
+  
+  // Add markers for matches
+  matches.forEach(c => {
+    const marker = L.marker([c.lat, c.lng]).addTo(Map).bindPopup(c.org || '(no org)');
+    ClientMarkers.push(marker);
+  });
+  
+  // Update results list
+  const resultsDiv = document.getElementById('ClientResults');
+  resultsDiv.innerHTML = matches.map(c => `<div>${c.org}</div>`).join('');
 });
 
 document.getElementById('ClearMap').addEventListener('click', ClearMap);
+
+document.getElementById('LoadClients').addEventListener('click', async () => {
+  const fileInput = document.getElementById('ClientCsv');
+  if (!fileInput.files.length) { alert('Please select a CSV file first'); return; }
+
+  try {
+    const rows = await LoadClientsFromCsv(fileInput.files[0]);
+    Clients = rows.map(row => ({
+      org: row['Organization Name'] || '',
+      address: `${row['Address'] || ''}, ${row['City'] || ''}, ${row['State'] || ''} ${row['Zip Code'] || ''}`,
+      raw: row,
+      lat: null,
+      lng: null
+    }));
+
+    // Geocode addresses sequentially (can be improved with batching later)
+    for (const client of Clients) {
+      try {
+        const loc = await Geocode(client.address);
+        client.lat = loc.lat;
+        client.lng = loc.lng;
+      } catch (e) {
+        console.warn('Geocode failed for', client.address);
+      }
+    }
+
+    alert(`Loaded ${Clients.length} clients`);
+  } catch (err) {
+    alert('Error loading CSV: ' + err.message);
+  }
+});
+
